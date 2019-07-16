@@ -21,7 +21,7 @@ sudo docker run -v localstorage:/datastore -p 5000:5000 deepquestai/deepstack
 Now go to http://YOUR_SERVER_IP_ADDRESS:5000/ on another computer or the same one running Deepstack. Input your activation key from your portal into the text box below "Enter New Activation Key" and press enter. Now stop your docker container. You are now ready to start using Deepstack!
 
 ## Home Assistant setup
-Place the `custom_components` folder in your configuration directory (or add its contents to an existing `custom_components` folder). Then configure face recognition and/or object detection. Note that at we use `scan_interval` to (optionally) limit computation, [as described here](https://www.home-assistant.io/components/image_processing/#scan_interval-and-optimising-resources).
+Place the `custom_components` folder in your configuration directory (or add its contents to an existing `custom_components` folder). Then configure face recognition . Note that at we use `scan_interval` to (optionally) limit computation, [as described here](https://www.home-assistant.io/components/image_processing/#scan_interval-and-optimising-resources).
 
 ## Face recognition
 Deepstack [face recognition](https://deepstackpython.readthedocs.io/en/latest/facerecognition.html) counts faces and will recognise them if you have trained your Deepstack using the `deepstack_teach_face` service.
@@ -70,6 +70,9 @@ Example valid service data:
 <img src="https://github.com/robmarkcole/HASS-Deepstack-face/blob/master/docs/face_detail.png" width="350">
 </p>
 
+## Object recognition
+For object (e.g. person) recognition with Deepstack use https://github.com/robmarkcole/HASS-Deepstack-object
+
 ### Support
 For code related issues such as suspected bugs, please open an issue on this repo. For general chat or to discuss Home Assistant specific issues related to configuration or use cases, please [use this thread on the Home Assistant forums](https://community.home-assistant.io/t/face-and-person-detection-with-deepstack-local-and-free/92041).
 
@@ -85,38 +88,20 @@ A1: Yes this is normal
 
 ------
 
-Q2: Why are there two custom components and not just one?
+Q2: Will Deepstack always be free, if so how do these guys make a living?
 
-A2: It is easier to maintain two simple components than one complex one.
-
-------
-
-Q3: The API return bounding boxes, why does this component not expose them?
-
-A3: The Home Assistant developers team are currently figuring out how bounding boxes should be handed, please feel free to add your thoughts to [this issue](https://github.com/home-assistant/architecture/issues/133).
+A2: I'm informed there will always be a basic free version with preloaded models, while there will be an enterprise version with advanced features such as custom models and endpoints, which will be subscription based.
 
 ------
 
-Q4: Will Deepstack always be free, if so how do these guys make a living?
+Q3: What are the minimum hardware requirements for running Deepstack?
 
-A4: I'm informed there will always be a basic free version with preloaded models, while there will be an enterprise version with advanced features such as custom models and endpoints, which will be subscription based.
-
-------
-
-Q5: What are the minimum hardware requirements for running Deepstack?
-
-A5. Based on my experience, I would allow 0.5 GB RAM per model.
+A3. Based on my experience, I would allow 0.5 GB RAM per model.
 
 ------
 
-Q6: Whats security like on the Deepstack container? Auth, SSL?
+Q4: If I teach (register) a face do I need to re-teach if I restart the container?
 
-A6: None yet, the Deepstack team are working on it.
-
-------
-
-Q7: If I teach (register) a face do I need to re-teach if I restart the container?
-
-A7: So long as you have run the container including `-v localstorage:/datastore` then you do not need to re-teach, as data is persisted between restarts.
+A4: So long as you have run the container including `-v localstorage:/datastore` then you do not need to re-teach, as data is persisted between restarts.
 
 ------
