@@ -28,7 +28,7 @@ Deepstack [face recognition](https://deepstackpython.readthedocs.io/en/latest/fa
 
 On you machine with docker, run Deepstack with the face recognition service active on port `5000`:
 ```
-sudo docker run -e VISION-FACE=True -v localstorage:/datastore -p 5000:5000 deepquestai/deepstack
+sudo docker run -e VISION-FACE=True -e API-KEY="Mysecretkey" -v localstorage:/datastore -p 5000:5000 deepquestai/deepstack
 ```
 
 The `deepstack_face` component adds an `image_processing` entity where the state of the entity is the total number of faces that are found in the camera image. Recognised faces are listed in the entity `matched faces
@@ -40,6 +40,8 @@ image_processing:
   - platform: deepstack_face
     ip_address: localhost
     port: 5000
+    api_key: Mysecretkey
+    timeout: 5
     scan_interval: 20000
     source:
       - entity_id: camera.local_file
@@ -48,6 +50,8 @@ image_processing:
 Configuration variables:
 - **ip_address**: the ip address of your deepstack instance.
 - **port**: the port of your deepstack instance.
+- **api_key**: (Optional) Any API key you have set.
+- **timeout**: (Optional, default 10 seconds) The timout for requests to deepstack.
 - **source**: Must be a camera.
 - **name**: (Optional) A custom name for the the entity.
 

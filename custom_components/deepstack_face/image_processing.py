@@ -28,9 +28,6 @@ from homeassistant.components.image_processing import (
 from homeassistant.const import (
     CONF_IP_ADDRESS,
     CONF_PORT,
-    HTTP_BAD_REQUEST,
-    HTTP_OK,
-    HTTP_UNAUTHORIZED,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,7 +44,12 @@ SERVICE_TEACH_FACE = "deepstack_teach_face"
 
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
-    {vol.Required(CONF_IP_ADDRESS): cv.string, vol.Required(CONF_PORT): cv.port}
+    {
+        vol.Required(CONF_IP_ADDRESS): cv.string,
+        vol.Required(CONF_PORT): cv.port,
+        vol.Optional(CONF_API_KEY, default=DEFAULT_API_KEY): cv.string,
+        vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): cv.positive_int,
+    }
 )
 
 SERVICE_TEACH_SCHEMA = vol.Schema(
@@ -66,10 +68,18 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 
     ip_address = config[CONF_IP_ADDRESS]
     port = config[CONF_PORT]
+    api_key = config.get(CONF_API_KEY)
+    timeout = config.get(CONF_TIMEOUT)
+
     entities = []
     for camera in config[CONF_SOURCE]:
         face_entity = FaceClassifyEntity(
-            ip_address, port, camera[CONF_ENTITY_ID], camera.get(CONF_NAME)
+            ip_address,
+            port,
+            api_key,
+            timeout,
+            camera[CONF_ENTITY_ID],
+            camera.get(CONF_NAME),
         )
         entities.append(face_entity)
         hass.data[DATA_DEEPSTACK].append(face_entity)
@@ -97,15 +107,10 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 class FaceClassifyEntity(ImageProcessingFaceEntity):
     """Perform a face classification."""
 
-    def __init__(self, ip_address, port, camera_entity, name=None):
+    def __init__(self, ip_address, port, api_key, timeout, camera_entity, name=None):
         """Init with the API key and model id."""
         super().__init__()
-        self._url_check = "http://{}:{}/v1/vision/face/recognize".format(
-            ip_address, port
-        )
-        self._url_register = "http://{}:{}/v1/vision/face/register".format(
-            ip_address, port
-        )
+        self._dsface = ds.DeepstackFace(ip_address, port, api_key, timeout)
         self._camera = camera_entity
         if name:
             self._name = name
@@ -116,14 +121,16 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
 
     def process_image(self, image):
         """Process an image."""
-        response = ds.post_image(
-            self._url_check, image, api_key="Mysecretkey", timeout=DEFAULT_TIMEOUT
-        )
-        if response:
-            if response.status_code == HTTP_OK:
-                predictions_json = response.json()["predictions"]
-                self._matched = ds.get_recognised_faces(predictions_json)
-                self.total_faces = len(predictions_json)
+        try:
+            self._dsface.detect(image)
+        except ds.DeepstackException as exc:
+            _LOGGER.error("Depstack error : %s", exc)
+            return
+        predictions = self._dsface.predictions.copy()
+
+        if len(predictions) > 0:
+            self.total_faces = len(predictions)
+            self._matched = ds.get_recognised_faces(predictions)
         else:
             self.total_faces = None
             self._matched = {}
