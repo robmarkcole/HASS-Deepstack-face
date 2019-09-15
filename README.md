@@ -24,7 +24,7 @@ Now go to http://YOUR_SERVER_IP_ADDRESS:5000/ on another computer or the same on
 Place the `custom_components` folder in your configuration directory (or add its contents to an existing `custom_components` folder). Then configure face recognition . Note that at we use `scan_interval` to (optionally) limit computation, [as described here](https://www.home-assistant.io/components/image_processing/#scan_interval-and-optimising-resources).
 
 ## Face recognition
-Deepstack [face recognition](https://deepstackpython.readthedocs.io/en/latest/facerecognition.html) counts faces and will recognise them if you have trained your Deepstack using the `deepstack_teach_face` service.
+Deepstack [face recognition](https://deepstackpython.readthedocs.io/en/latest/facerecognition.html) counts faces (detection) and (optionally) will recognise them if you have trained your Deepstack using the `deepstack_teach_face` service. In `detect_only` mode processing is faster than recognition mode, but any trained faces will not be listed in the `matched_faces` attribute.
 
 On you machine with docker, run Deepstack with the face recognition service active on port `5000`:
 ```
@@ -42,6 +42,7 @@ image_processing:
     port: 5000
     api_key: Mysecretkey
     timeout: 5
+    detect_only: True
     scan_interval: 20000
     source:
       - entity_id: camera.local_file
@@ -52,6 +53,7 @@ Configuration variables:
 - **port**: the port of your deepstack instance.
 - **api_key**: (Optional) Any API key you have set.
 - **timeout**: (Optional, default 10 seconds) The timout for requests to deepstack.
+- **detect_only**: (Optional, boolean, default `False`) If `True`, only detection is performed. If `False` then recognition is performed.
 - **source**: Must be a camera.
 - **name**: (Optional) A custom name for the the entity.
 

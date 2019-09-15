@@ -34,6 +34,8 @@ CONF_TIMEOUT = "timeout"
 DEFAULT_API_KEY = ""
 DEFAULT_TIMEOUT = 10
 
+CONF_DETECT_ONLY = "detect_only"
+
 CLASSIFIER = "deepstack_face"
 DATA_DEEPSTACK = "deepstack_classifiers"
 FILE_PATH = "file_path"
@@ -46,6 +48,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Required(CONF_PORT): cv.port,
         vol.Optional(CONF_API_KEY, default=DEFAULT_API_KEY): cv.string,
         vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): cv.positive_int,
+        vol.Optional(CONF_DETECT_ONLY, default=False): cv.boolean,
     }
 )
 
@@ -67,6 +70,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     port = config[CONF_PORT]
     api_key = config.get(CONF_API_KEY)
     timeout = config.get(CONF_TIMEOUT)
+    detect_only = config.get(CONF_DETECT_ONLY)
 
     entities = []
     for camera in config[CONF_SOURCE]:
@@ -75,6 +79,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
             port,
             api_key,
             timeout,
+            detect_only,
             camera[CONF_ENTITY_ID],
             camera.get(CONF_NAME),
         )
@@ -104,10 +109,11 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 class FaceClassifyEntity(ImageProcessingFaceEntity):
     """Perform a face classification."""
 
-    def __init__(self, ip_address, port, api_key, timeout, camera_entity, name=None):
+    def __init__(self, ip_address, port, api_key, timeout, detect_only, camera_entity, name=None):
         """Init with the API key and model id."""
         super().__init__()
         self._dsface = ds.DeepstackFace(ip_address, port, api_key, timeout)
+        self._detect_only = detect_only
         self._camera = camera_entity
         if name:
             self._name = name
@@ -119,8 +125,10 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
     def process_image(self, image):
         """Process an image."""
         try:
-            # self._dsface.detect(image)
-            self._dsface.recognise(image)
+            if self._detect_only:
+                self._dsface.detect(image)
+            else:
+                self._dsface.recognise(image)
         except ds.DeepstackException as exc:
             _LOGGER.error("Depstack error : %s", exc)
             return
