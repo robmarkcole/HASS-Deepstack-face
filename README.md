@@ -61,8 +61,8 @@ This service is for teaching (or [registering](https://deepstackpython.readthedo
 Example valid service data:
 ```
 {
-  "name": "superman",
-  "file_path": "/Users/robincole/.homeassistant/images/superman_1.jpeg"
+  "name": "Adele",
+  "file_path": "/config/www/adele.jpeg"
 }
 ```
 

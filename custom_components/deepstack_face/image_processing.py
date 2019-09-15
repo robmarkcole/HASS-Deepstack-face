@@ -25,10 +25,7 @@ from homeassistant.components.image_processing import (
     CONF_NAME,
     DOMAIN,
 )
-from homeassistant.const import (
-    CONF_IP_ADDRESS,
-    CONF_PORT,
-)
+from homeassistant.const import CONF_IP_ADDRESS, CONF_PORT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -122,7 +119,8 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
     def process_image(self, image):
         """Process an image."""
         try:
-            self._dsface.detect(image)
+            # self._dsface.detect(image)
+            self._dsface.recognise(image)
         except ds.DeepstackException as exc:
             _LOGGER.error("Depstack error : %s", exc)
             return
@@ -139,8 +137,9 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         """Teach classifier a face name."""
         if not self.hass.config.is_allowed_path(file_path):
             return
-        pass
-        # register_face(self._url_register, name, file_path)
+        with open(file_path, "rb") as image:
+            self._dsface.register_face(name, image)
+            _LOGGER.info("Depstack face taught name : %s", name)
 
     @property
     def camera_entity(self):
