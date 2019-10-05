@@ -43,7 +43,7 @@ image_processing:
     api_key: Mysecretkey
     timeout: 5
     detect_only: True
-    scan_interval: 20000
+    scan_interval: 20
     source:
       - entity_id: camera.local_file
         name: face_counter
@@ -109,5 +109,11 @@ A3. Based on my experience, I would allow 0.5 GB RAM per model.
 Q4: If I teach (register) a face do I need to re-teach if I restart the container?
 
 A4: So long as you have run the container including `-v localstorage:/datastore` then you do not need to re-teach, as data is persisted between restarts.
+
+------
+
+Q5: I am getting an error from Home Assistant: `Platform error: image_processing - Integration deepstack_object not found`
+
+A5: This can happen when you are running in Docker/Hassio, and indicates that one of the dependencies isn't installed. It is necessary to reboot your Hassio device, or rebuild your Docker container. Note that just restarting Home Assistant will not resolve this.
 
 ------
