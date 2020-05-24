@@ -4,7 +4,6 @@ Component that will perform facial recognition via deepstack.
 For more details about this platform, please refer to the documentation at
 https://home-assistant.io/components/image_processing.deepstack_face
 """
-import base64
 import logging
 import time
 
@@ -61,6 +60,19 @@ SERVICE_TEACH_SCHEMA = vol.Schema(
 )
 
 
+def parse_predictions(predictions):
+    """Parse the predictions data into the format required for HA image_processing.detect_face event."""
+    faces = []
+    for entry in predictions:
+        if entry["userid"] == "unknown":
+            continue
+        face = {}
+        face["name"] = entry["userid"]
+        face[ATTR_CONFIDENCE] = round(100.0 * entry["confidence"], 2)
+        faces.append(face)
+    return faces
+
+
 def setup_platform(hass, config, add_devices, discovery_info=None):
     """Set up the classifier."""
     if DATA_DEEPSTACK not in hass.data:
@@ -109,7 +121,9 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 class FaceClassifyEntity(ImageProcessingFaceEntity):
     """Perform a face classification."""
 
-    def __init__(self, ip_address, port, api_key, timeout, detect_only, camera_entity, name=None):
+    def __init__(
+        self, ip_address, port, api_key, timeout, detect_only, camera_entity, name=None
+    ):
         """Init with the API key and model id."""
         super().__init__()
         self._dsface = ds.DeepstackFace(ip_address, port, api_key, timeout)
@@ -137,6 +151,10 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         if len(predictions) > 0:
             self.total_faces = len(predictions)
             self._matched = ds.get_recognised_faces(predictions)
+            faces = parse_predictions(predictions)
+            self.process_faces(
+                faces, self.total_faces
+            )  # fire image_processing.detect_face
         else:
             self.total_faces = None
             self._matched = {}
@@ -163,6 +181,11 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
     def state(self):
         """Ensure consistent state."""
         return self.total_faces
+
+    @property
+    def should_poll(self):
+        """Return the polling state."""
+        return False
 
     @property
     def device_state_attributes(self):
