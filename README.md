@@ -24,7 +24,7 @@ Now go to http://YOUR_SERVER_IP_ADDRESS:5000/ on another computer or the same on
 Place the `custom_components` folder in your configuration directory (or add its contents to an existing `custom_components` folder). Then configure face recognition . Note that at we use `scan_interval` to (optionally) limit computation, [as described here](https://www.home-assistant.io/components/image_processing/#scan_interval-and-optimising-resources).
 
 ## Face recognition
-Deepstack [face recognition](https://deepstackpython.readthedocs.io/en/latest/facerecognition.html) counts faces (detection) and (optionally) will recognise them if you have trained your Deepstack using the `deepstack_teach_face` service. In `detect_only` mode processing is faster than recognition mode, but any trained faces will not be listed in the `matched_faces` attribute.
+Deepstack [face recognition](https://deepstackpython.readthedocs.io/en/latest/facerecognition.html) counts faces (detection) and (optionally) will recognise them if you have trained your Deepstack using the `deepstack_teach_face` service. In `detect_only` mode processing is faster than recognition mode, but any trained faces will not be listed in the `matched_faces` attribute. An event `image_processing.detect_face` is fired for each detected recognised face.
 
 On you machine with docker, run Deepstack with the face recognition service active on port `5000`:
 ```
@@ -75,6 +75,13 @@ Example valid service data:
 <p align="center">
 <img src="https://github.com/robmarkcole/HASS-Deepstack-face/blob/master/docs/face_detail.png" width="350">
 </p>
+
+## Event `image_processing.detect_face`
+For each recognised face that is detected, an `image_processing.detect_face` event is fired. To monitor these events from the HA UI you can use `Developer tools -> EVENTS -> :Listen to events`. The event payload includes the following data:
+- `entity_id` : the entity id responsible for the event
+- `name` : the name of the recognised face
+- `confidence`: the confidence in % of the recognition
+
 
 ## Object recognition
 For object (e.g. person) recognition with Deepstack use https://github.com/robmarkcole/HASS-Deepstack-object

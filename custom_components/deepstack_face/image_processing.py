@@ -61,9 +61,11 @@ SERVICE_TEACH_SCHEMA = vol.Schema(
 
 
 def parse_predictions(predictions):
-    """Parse the predictions data into the format required for HA event."""
+    """Parse the predictions data into the format required for HA image_processing.detect_face event."""
     faces = []
     for entry in predictions:
+        if entry["userid"] == "unknown":
+            continue
         face = {}
         face["name"] = entry["userid"]
         face[ATTR_CONFIDENCE] = round(100.0 * entry["confidence"], 2)
