@@ -45,7 +45,6 @@ image_processing:
     api_key: Mysecretkey
     timeout: 5
     detect_only: True
-    scan_interval: 20
     source:
       - entity_id: camera.local_file
         name: face_counter
