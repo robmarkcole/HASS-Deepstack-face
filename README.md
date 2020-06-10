@@ -1,40 +1,50 @@
 # HASS-Deepstack-face
-[Home Assistant](https://www.home-assistant.io/) custom components for using Deepstack face detection and recognition. [Deepstack](https://www.deepquestai.com/insider/) is a service which runs in a docker container and exposes deep-learning models via a REST API. There is no cost for using Deepstack, although you will need a machine with 8 GB RAM. On your machine with docker, pull the latest image (approx. 2GB):
+[Home Assistant](https://www.home-assistant.io/) custom components for using Deepstack face detection and recognition. [Deepstack](https://www.deepquestai.com/insider/) is a service which runs in a docker container and exposes deep-learning models via a REST API. There is no cost for using Deepstack, although you will need a machine with 8 GB RAM.
 
-```
-sudo docker pull deepquestai/deepstack
-```
 **Recommended OS** Deepstack docker containers are optimised for Linux or Windows 10 Pro. Mac and regular windows users my experience performance issues.
 
 **GPU users** Note that if your machine has an Nvidia GPU you can get a 5 x 20 times performance boost by using the GPU, [read the docs here](https://deepstackpython.readthedocs.io/en/latest/gpuinstall.html#gpuinstall).
 
 **Legacy machine users** If you are using a machine that doesn't support avx or you are having issues with making requests, Deepstack has a specific build for these systems. Use `deepquestai/deepstack:noavx` instead of `deepquestai/deepstack` when you are installing or running Deepstack.
 
-## Activating the API
-Before you get started, you will need to activate the Deepstack API. First, go to www.deepstack.cc and sign up for an account. Choose the basic plan which will give us unlimited access for one installation. You will then see an activation key in your portal.
-
-On your machine with docker, run Deepstack without any recognition so you can activate the API on port `5000`:
+## Run deepstack face & test
+On you machine with docker, run Deepstack with the face recognition service active on port `5000` (and in legacy machine mode) with:
 ```
-sudo docker run -v localstorage:/datastore -p 5000:5000 deepquestai/deepstack
+docker run -e VISION-FACE=True -v localstorage:/datastore -p 5000:5000 --name deepstack deepquestai/deepstack:noavx
 ```
 
-Now go to http://YOUR_SERVER_IP_ADDRESS:5000/ on another computer or the same one running Deepstack. Input your activation key from your portal into the text box below "Enter New Activation Key" and press enter. Now stop your docker container. You are now ready to start using Deepstack!
+You can test the face detection endpoint is active using curl (here no API-KEY is set):
+```
+curl -X POST -F image=@docs/couple.jpg 'http://localhost:5000/v1/vision/face'
+```
+This should return:
+```
+{"success":true,"predictions":[
+{"confidence":0.99997544,"y_min":154,"x_min":1615,"y_max":682,"x_max":1983},
+{"confidence":0.9999571,"y_min":237,"x_min":869,"y_max":732,"x_max":1214}
+]}
+```
+Face recognition can be tested with:
+```
+curl -X POST -F image=@docs/couple.jpg 'http://localhost:5000/v1/vision/face/recognize'
+```
+This will return the same bounding box data as face detection, but also include a field `"userid"` which for recognized faces an example is `"userid":"Idris Elba"` whilst unrecognized faces are `"userid":"unknown"`. Example returned data:
+```
+{"success":true,"predictions":[
+{"confidence":0.7536658,"userid":"Idris Elba","y_min":154,"x_min":1615,"y_max":682,"x_max":1983},
+{"confidence":0,"userid":"unknown","y_min":237,"x_min":869,"y_max":732,"x_max":1214}
+]}
+```
 
 ## Home Assistant setup
 Place the `custom_components` folder in your configuration directory (or add its contents to an existing `custom_components` folder). Then configure face recognition.
 
 **Note** that by default the component will **not** automatically scan images, but requires you to call the `image_processing.scan` service e.g. using an automation.
 
-## Face recognition
-Deepstack [face recognition](https://deepstackpython.readthedocs.io/en/latest/facerecognition.html) counts faces (detection) and (optionally) will recognise them if you have trained your Deepstack using the `deepstack_teach_face` service. In `detect_only` mode processing is faster than recognition mode, but any trained faces will not be listed in the `matched_faces` attribute. An event `image_processing.detect_face` is fired for each detected recognised face.
+## Face detection & recognition
+Deepstack [face recognition](https://deepstackpython.readthedocs.io/en/latest/facerecognition.html) counts faces (detection) and (optionally) will recognise them if you have trained your Deepstack using the `deepstack_teach_face` service (takes extra time). Configuring `detect_only = True` results in faster processing than recognition mode, but any trained faces will not be listed in the `matched_faces` attribute. An event `image_processing.detect_face` is fired for each detected recognised face.
 
-On you machine with docker, run Deepstack with the face recognition service active on port `5000`:
-```
-sudo docker run -e VISION-FACE=True -e API-KEY="Mysecretkey" -v localstorage:/datastore -p 5000:5000 deepquestai/deepstack
-```
-
-The `deepstack_face` component adds an `image_processing` entity where the state of the entity is the total number of faces that are found in the camera image. Recognised faces are listed in the entity `matched faces
-` attribute.
+The `deepstack_face` component adds an `image_processing` entity where the state of the entity is the total number of faces that are found in the camera image. Recognised faces are listed in the entity `matched faces` attribute. The component can optionally save snapshots of the processed images. If you would like to use this option, you need to create a folder where the snapshots will be stored. The folder should be in the same folder where your `configuration.yaml` file is located. In the example below, we have named the folder `snapshots`.
 
 Add to your Home-Assistant config:
 ```yaml
@@ -42,9 +52,11 @@ image_processing:
   - platform: deepstack_face
     ip_address: localhost
     port: 5000
-    api_key: Mysecretkey
+    api_key: mysecretkey
     timeout: 5
     detect_only: True
+    save_file_folder: /config/snapshots/
+    save_timestamped_file: True
     source:
       - entity_id: camera.local_file
         name: face_counter
@@ -55,6 +67,8 @@ Configuration variables:
 - **api_key**: (Optional) Any API key you have set.
 - **timeout**: (Optional, default 10 seconds) The timout for requests to deepstack.
 - **detect_only**: (Optional, boolean, default `False`) If `True`, only detection is performed. If `False` then recognition is performed.
+- **save_file_folder**: (Optional) The folder to save processed images to. Note that folder path should be added to [whitelist_external_dirs](https://www.home-assistant.io/docs/configuration/basic/)
+- **save_timestamped_file**: (Optional, default `False`, requires `save_file_folder` to be configured) Save the processed image with the time of detection in the filename.
 - **source**: Must be a camera.
 - **name**: (Optional) A custom name for the the entity.
 
@@ -82,7 +96,6 @@ For each recognised face that is detected, an `image_processing.detect_face` eve
 - `entity_id` : the entity id responsible for the event
 - `name` : the name of the recognised face
 - `confidence`: the confidence in % of the recognition
-
 
 ## Object recognition
 For object (e.g. person) recognition with Deepstack use https://github.com/robmarkcole/HASS-Deepstack-object

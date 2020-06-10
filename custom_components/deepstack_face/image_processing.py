@@ -4,36 +4,47 @@ Component that will perform facial recognition via deepstack.
 For more details about this platform, please refer to the documentation at
 https://home-assistant.io/components/image_processing.deepstack_face
 """
+import io
 import logging
+import re
 import time
-
-import deepstack.core as ds
+from pathlib import Path
 
 import requests
-import voluptuous as vol
+from PIL import Image, ImageDraw
 
-from homeassistant.const import ATTR_ENTITY_ID, ATTR_NAME
-from homeassistant.core import split_entity_id
+import deepstack.core as ds
 import homeassistant.helpers.config_validation as cv
+import homeassistant.util.dt as dt_util
+import voluptuous as vol
 from homeassistant.components.image_processing import (
-    PLATFORM_SCHEMA,
-    ImageProcessingFaceEntity,
     ATTR_CONFIDENCE,
-    CONF_SOURCE,
     CONF_ENTITY_ID,
     CONF_NAME,
+    CONF_SOURCE,
     DOMAIN,
+    PLATFORM_SCHEMA,
+    ImageProcessingFaceEntity,
 )
-from homeassistant.const import CONF_IP_ADDRESS, CONF_PORT
+from homeassistant.const import (
+    ATTR_ENTITY_ID,
+    ATTR_NAME,
+    CONF_IP_ADDRESS,
+    CONF_PORT,
+)
+from homeassistant.core import split_entity_id
 
 _LOGGER = logging.getLogger(__name__)
 
 CONF_API_KEY = "api_key"
 CONF_TIMEOUT = "timeout"
+CONF_DETECT_ONLY = "detect_only"
+CONF_SAVE_FILE_FOLDER = "save_file_folder"
+CONF_SAVE_TIMESTAMPTED_FILE = "save_timestamped_file"
+
+DATETIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
 DEFAULT_API_KEY = ""
 DEFAULT_TIMEOUT = 10
-
-CONF_DETECT_ONLY = "detect_only"
 
 CLASSIFIER = "deepstack_face"
 DATA_DEEPSTACK = "deepstack_classifiers"
@@ -48,6 +59,8 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_API_KEY, default=DEFAULT_API_KEY): cv.string,
         vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): cv.positive_int,
         vol.Optional(CONF_DETECT_ONLY, default=False): cv.boolean,
+        vol.Optional(CONF_SAVE_FILE_FOLDER): cv.isdir,
+        vol.Optional(CONF_SAVE_TIMESTAMPTED_FILE, default=False): cv.boolean,
     }
 )
 
@@ -60,10 +73,16 @@ SERVICE_TEACH_SCHEMA = vol.Schema(
 )
 
 
-def parse_predictions(predictions):
-    """Parse the predictions data into the format required for HA image_processing.detect_face event."""
+def get_valid_filename(name: str) -> str:
+    return re.sub(r"(?u)[^-\w.]", "", str(name).strip().replace(" ", "_"))
+
+
+def parse_faces(predictions):
+    """Get recognised faces for the image_processing.detect_face event."""
     faces = []
     for entry in predictions:
+        if not "userid" in entry.keys():
+            break  # we are in detect_only mode
         if entry["userid"] == "unknown":
             continue
         face = {}
@@ -78,20 +97,20 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     if DATA_DEEPSTACK not in hass.data:
         hass.data[DATA_DEEPSTACK] = []
 
-    ip_address = config[CONF_IP_ADDRESS]
-    port = config[CONF_PORT]
-    api_key = config.get(CONF_API_KEY)
-    timeout = config.get(CONF_TIMEOUT)
-    detect_only = config.get(CONF_DETECT_ONLY)
+    save_file_folder = config.get(CONF_SAVE_FILE_FOLDER)
+    if save_file_folder:
+        save_file_folder = Path(save_file_folder)
 
     entities = []
     for camera in config[CONF_SOURCE]:
         face_entity = FaceClassifyEntity(
-            ip_address,
-            port,
-            api_key,
-            timeout,
-            detect_only,
+            config[CONF_IP_ADDRESS],
+            config[CONF_PORT],
+            config.get(CONF_API_KEY),
+            config.get(CONF_TIMEOUT),
+            config.get(CONF_DETECT_ONLY),
+            save_file_folder,
+            config.get(CONF_SAVE_TIMESTAMPTED_FILE),
             camera[CONF_ENTITY_ID],
             camera.get(CONF_NAME),
         )
@@ -122,22 +141,41 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
     """Perform a face classification."""
 
     def __init__(
-        self, ip_address, port, api_key, timeout, detect_only, camera_entity, name=None
+        self,
+        ip_address,
+        port,
+        api_key,
+        timeout,
+        detect_only,
+        save_file_folder,
+        save_timestamped_file,
+        camera_entity,
+        name=None,
     ):
         """Init with the API key and model id."""
         super().__init__()
         self._dsface = ds.DeepstackFace(ip_address, port, api_key, timeout)
         self._detect_only = detect_only
+
+        self._last_detection = None
+        self._save_file_folder = save_file_folder
+        self._save_timestamped_file = save_timestamped_file
+
         self._camera = camera_entity
         if name:
             self._name = name
         else:
             camera_name = split_entity_id(camera_entity)[1]
             self._name = "{} {}".format(CLASSIFIER, camera_name)
+        self._faces = []
         self._matched = {}
+        self.total_faces = None
 
     def process_image(self, image):
         """Process an image."""
+        self._faces = []
+        self._matched = {}
+        self.total_faces = None
         try:
             if self._detect_only:
                 self._dsface.detect(image)
@@ -146,15 +184,19 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         except ds.DeepstackException as exc:
             _LOGGER.error("Depstack error : %s", exc)
             return
-        predictions = self._dsface.predictions.copy()
+        self._faces = self._dsface.predictions.copy()
 
-        if len(predictions) > 0:
-            self.total_faces = len(predictions)
-            self._matched = ds.get_recognised_faces(predictions)
-            faces = parse_predictions(predictions)
+        if len(self._faces) > 0:
+            self._last_detection = dt_util.now().strftime(DATETIME_FORMAT)
+            self.total_faces = len(self._faces)
+            self._matched = ds.get_recognised_faces(self._faces)
             self.process_faces(
-                faces, self.total_faces
+                parse_faces(self._faces), self.total_faces
             )  # fire image_processing.detect_face
+            if self._save_file_folder:
+                self.save_image(
+                    image, self._save_file_folder,
+                )
         else:
             self.total_faces = None
             self._matched = {}
@@ -190,7 +232,29 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
     @property
     def device_state_attributes(self):
         """Return the classifier attributes."""
-        return {
-            "matched_faces": self._matched,
-            "total_matched_faces": len(self._matched),
-        }
+        attr = {}
+        attr["matched_faces"] = self._matched
+        attr["total_matched_faces"] = len(self._matched)
+        if self._last_detection:
+            attr["last_target_detection"] = self._last_detection
+        return attr
+
+    def save_image(self, image, directory):
+        """Draws the actual bounding box of the detected objects."""
+        try:
+            img = Image.open(io.BytesIO(bytearray(image))).convert("RGB")
+        except UnidentifiedImageError:
+            _LOGGER.warning("Deepstack unable to process image, bad data")
+            return
+
+        latest_save_path = (
+            directory / f"{get_valid_filename(self._name).lower()}_latest.jpg"
+        )
+        img.save(latest_save_path)
+
+        if self._save_timestamped_file:
+            timestamp_save_path = (
+                directory / f"{self._name}_{self._last_detection}.jpg"
+            )
+            img.save(timestamp_save_path)
+            _LOGGER.info("Deepstack saved file %s", timestamp_save_path)
