@@ -44,8 +44,7 @@ Place the `custom_components` folder in your configuration directory (or add its
 ## Face detection & recognition
 Deepstack [face recognition](https://deepstackpython.readthedocs.io/en/latest/facerecognition.html) counts faces (detection) and (optionally) will recognise them if you have trained your Deepstack using the `deepstack_teach_face` service (takes extra time). Configuring `detect_only = True` results in faster processing than recognition mode, but any trained faces will not be listed in the `matched_faces` attribute. An event `image_processing.detect_face` is fired for each detected recognised face.
 
-The `deepstack_face` component adds an `image_processing` entity where the state of the entity is the total number of faces that are found in the camera image. Recognised faces are listed in the entity `matched faces
-` attribute.
+The `deepstack_face` component adds an `image_processing` entity where the state of the entity is the total number of faces that are found in the camera image. Recognised faces are listed in the entity `matched faces` attribute. The component can optionally save snapshots of the processed images. If you would like to use this option, you need to create a folder where the snapshots will be stored. The folder should be in the same folder where your `configuration.yaml` file is located. In the example below, we have named the folder `snapshots`.
 
 Add to your Home-Assistant config:
 ```yaml
@@ -56,6 +55,8 @@ image_processing:
     api_key: mysecretkey
     timeout: 5
     detect_only: True
+    save_file_folder: /config/snapshots/
+    save_timestamped_file: True
     source:
       - entity_id: camera.local_file
         name: face_counter
@@ -66,6 +67,8 @@ Configuration variables:
 - **api_key**: (Optional) Any API key you have set.
 - **timeout**: (Optional, default 10 seconds) The timout for requests to deepstack.
 - **detect_only**: (Optional, boolean, default `False`) If `True`, only detection is performed. If `False` then recognition is performed.
+- **save_file_folder**: (Optional) The folder to save processed images to. Note that folder path should be added to [whitelist_external_dirs](https://www.home-assistant.io/docs/configuration/basic/)
+- **save_timestamped_file**: (Optional, default `False`, requires `save_file_folder` to be configured) Save the processed image with the time of detection in the filename.
 - **source**: Must be a camera.
 - **name**: (Optional) A custom name for the the entity.
 
