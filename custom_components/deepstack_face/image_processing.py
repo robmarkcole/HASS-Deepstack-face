@@ -6,6 +6,7 @@ https://home-assistant.io/components/image_processing.deepstack_face
 """
 import logging
 import time
+from pathlib import Path
 
 import deepstack.core as ds
 
@@ -30,10 +31,13 @@ _LOGGER = logging.getLogger(__name__)
 
 CONF_API_KEY = "api_key"
 CONF_TIMEOUT = "timeout"
+CONF_DETECT_ONLY = "detect_only"
+CONF_SAVE_FILE_FOLDER = "save_file_folder"
+CONF_SAVE_TIMESTAMPTED_FILE = "save_timestamped_file"
+CONF_SHOW_BOXES = "show_boxes"
+
 DEFAULT_API_KEY = ""
 DEFAULT_TIMEOUT = 10
-
-CONF_DETECT_ONLY = "detect_only"
 
 CLASSIFIER = "deepstack_face"
 DATA_DEEPSTACK = "deepstack_classifiers"
@@ -48,6 +52,9 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_API_KEY, default=DEFAULT_API_KEY): cv.string,
         vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): cv.positive_int,
         vol.Optional(CONF_DETECT_ONLY, default=False): cv.boolean,
+        vol.Optional(CONF_SAVE_FILE_FOLDER): cv.isdir,
+        vol.Optional(CONF_SAVE_TIMESTAMPTED_FILE, default=False): cv.boolean,
+        vol.Optional(CONF_SHOW_BOXES, default=True): cv.boolean,
     }
 )
 
@@ -80,20 +87,21 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     if DATA_DEEPSTACK not in hass.data:
         hass.data[DATA_DEEPSTACK] = []
 
-    ip_address = config[CONF_IP_ADDRESS]
-    port = config[CONF_PORT]
-    api_key = config.get(CONF_API_KEY)
-    timeout = config.get(CONF_TIMEOUT)
-    detect_only = config.get(CONF_DETECT_ONLY)
+    save_file_folder = config.get(CONF_SAVE_FILE_FOLDER)
+    if save_file_folder:
+        save_file_folder = Path(save_file_folder)
 
     entities = []
     for camera in config[CONF_SOURCE]:
         face_entity = FaceClassifyEntity(
-            ip_address,
-            port,
-            api_key,
-            timeout,
-            detect_only,
+            config[CONF_IP_ADDRESS],
+            config[CONF_PORT],
+            config.get(CONF_API_KEY),
+            config.get(CONF_TIMEOUT),
+            config.get(CONF_DETECT_ONLY),
+            config[CONF_SHOW_BOXES],
+            save_file_folder,
+            config.get(CONF_SAVE_TIMESTAMPTED_FILE),
             camera[CONF_ENTITY_ID],
             camera.get(CONF_NAME),
         )
@@ -124,7 +132,17 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
     """Perform a face classification."""
 
     def __init__(
-        self, ip_address, port, api_key, timeout, detect_only, camera_entity, name=None
+        self,
+        ip_address,
+        port,
+        api_key,
+        timeout,
+        detect_only,
+        show_boxes,
+        save_file_folder,
+        save_timestamped_file,
+        camera_entity,
+        name=None,
     ):
         """Init with the API key and model id."""
         super().__init__()
