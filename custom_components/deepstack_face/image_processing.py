@@ -61,9 +61,11 @@ SERVICE_TEACH_SCHEMA = vol.Schema(
 
 
 def parse_predictions(predictions):
-    """Parse the predictions data into the format required for HA image_processing.detect_face event."""
+    """Get recognised faces for the image_processing.detect_face event."""
     faces = []
     for entry in predictions:
+        if not "userid" in entry.keys():
+            break  # we are in detect_only mode
         if entry["userid"] == "unknown":
             continue
         face = {}
@@ -151,9 +153,8 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         if len(predictions) > 0:
             self.total_faces = len(predictions)
             self._matched = ds.get_recognised_faces(predictions)
-            faces = parse_predictions(predictions)
             self.process_faces(
-                faces, self.total_faces
+                parse_predictions(predictions), self.total_faces
             )  # fire image_processing.detect_face
         else:
             self.total_faces = None
