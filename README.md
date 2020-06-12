@@ -97,6 +97,8 @@ For each recognised face that is detected, an `image_processing.detect_face` eve
 - `name` : the name of the recognised face
 - `confidence`: the confidence in % of the recognition
 
+**Remember** face recognition is not performed if you have configured `detect_only: True`.
+
 ## Object recognition
 For object (e.g. person) recognition with Deepstack use https://github.com/robmarkcole/HASS-Deepstack-object
 
