@@ -83,7 +83,7 @@ def get_valid_filename(name: str) -> str:
     return re.sub(r"(?u)[^-\w.]", "", str(name).strip().replace(" ", "_"))
 
 
-def get_faces(predictions: list, img_width: int = 300, img_height: int = 300):
+def get_faces(predictions: list, img_width: int, img_height: int):
     """Return faces with formatting for annotating images."""
     faces = []
     decimal_places = 3
@@ -103,20 +103,8 @@ def get_faces(predictions: list, img_width: int = 300, img_height: int = 300):
             "y_max": round(pred["y_max"] / img_height, decimal_places),
             "x_max": round(pred["x_max"] / img_width, decimal_places),
         }
-        box_area = round(box["height"] * box["width"], decimal_places)
-        centroid = {
-            "x": round(box["x_min"] + (box["width"] / 2), decimal_places),
-            "y": round(box["y_min"] + (box["height"] / 2), decimal_places),
-        }
-
         faces.append(
-            {
-                "name": name,
-                "confidence": confidence,
-                "bounding_box": box,
-                "box_area": box_area,
-                "centroid": centroid,
-            }
+            {"name": name, "confidence": confidence, "bounding_box": box,}
         )
     return faces
 
@@ -203,10 +191,18 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         self.total_faces = None
 
     def process_image(self, image):
-        """Process an image."""
+        """Process an image, comes in as bytes."""
         self._predictions = []
         self._matched = {}
         self.total_faces = None
+
+        try:
+            pil_image = Image.open(io.BytesIO(bytearray(image))).convert("RGB")
+        except UnidentifiedImageError:
+            _LOGGER.warning("Deepstack unable to process image, bad data")
+            return
+
+        image_width, image_height = pil_image.size
         try:
             if self._detect_only:
                 self._dsface.detect(image)
@@ -221,18 +217,19 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
             self._last_detection = dt_util.now().strftime(DATETIME_FORMAT)
             self.total_faces = len(self._predictions)
             self._matched = ds.get_recognised_faces(self._predictions)
+            self.faces = get_faces(self._predictions, image_width, image_height)
             self.process_faces(
-                get_faces(self._predictions), self.total_faces,
+                self.faces, self.total_faces,
             )  # fire image_processing.detect_face
             if self._save_file_folder:
                 self.save_image(
-                    image, self._save_file_folder,
+                    pil_image, self._save_file_folder,
                 )
         else:
             self.total_faces = None
             self._matched = {}
 
-    def teach(self, name, file_path):
+    def teach(self, name: str, file_path: str):
         """Teach classifier a face name."""
         if not self.hass.config.is_allowed_path(file_path):
             return
@@ -278,17 +275,11 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
             attr["last_detection"] = self._last_detection
         return attr
 
-    def save_image(self, image, directory):
+    def save_image(self, pil_image: Image, directory: Path):
         """Draws the actual bounding box of the detected objects."""
-        try:
-            img = Image.open(io.BytesIO(bytearray(image))).convert("RGB")
-        except UnidentifiedImageError:
-            _LOGGER.warning("Deepstack unable to process image, bad data")
-            return
-
-        image_width, image_height = img.size
-        draw = ImageDraw.Draw(img)
-        for face in get_faces(self._predictions, image_width, image_height):
+        image_width, image_height = pil_image.size
+        draw = ImageDraw.Draw(pil_image)
+        for face in self.faces:
             if not self._show_boxes:
                 break
             name = face["name"]
@@ -308,11 +299,11 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         latest_save_path = (
             directory / f"{get_valid_filename(self._name).lower()}_latest.jpg"
         )
-        img.save(latest_save_path)
+        pil_image.save(latest_save_path)
 
         if self._save_timestamped_file:
             timestamp_save_path = (
                 directory / f"{self._name}_{self._last_detection}.jpg"
             )
-            img.save(timestamp_save_path)
+            pil_image.save(timestamp_save_path)
             _LOGGER.info("Deepstack saved file %s", timestamp_save_path)
