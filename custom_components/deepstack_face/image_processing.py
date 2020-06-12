@@ -15,6 +15,7 @@ from PIL import Image, ImageDraw
 
 import deepstack.core as ds
 import homeassistant.helpers.config_validation as cv
+from homeassistant.util.pil import draw_box
 import homeassistant.util.dt as dt_util
 import voluptuous as vol
 from homeassistant.components.image_processing import (
@@ -36,11 +37,15 @@ from homeassistant.core import split_entity_id
 
 _LOGGER = logging.getLogger(__name__)
 
+# rgb(red, green, blue)
+RED = (255, 0, 0)  # For objects within the ROI
+
 CONF_API_KEY = "api_key"
 CONF_TIMEOUT = "timeout"
 CONF_DETECT_ONLY = "detect_only"
 CONF_SAVE_FILE_FOLDER = "save_file_folder"
 CONF_SAVE_TIMESTAMPTED_FILE = "save_timestamped_file"
+CONF_SHOW_BOXES = "show_boxes"
 
 DATETIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
 DEFAULT_API_KEY = ""
@@ -61,6 +66,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_DETECT_ONLY, default=False): cv.boolean,
         vol.Optional(CONF_SAVE_FILE_FOLDER): cv.isdir,
         vol.Optional(CONF_SAVE_TIMESTAMPTED_FILE, default=False): cv.boolean,
+        vol.Optional(CONF_SHOW_BOXES, default=True): cv.boolean,
     }
 )
 
@@ -77,7 +83,7 @@ def get_valid_filename(name: str) -> str:
     return re.sub(r"(?u)[^-\w.]", "", str(name).strip().replace(" ", "_"))
 
 
-def parse_faces(predictions):
+def parse_predictions_for_events(predictions: list):
     """Get recognised faces for the image_processing.detect_face event."""
     faces = []
     for entry in predictions:
@@ -87,6 +93,41 @@ def parse_faces(predictions):
         face["name"] = entry["userid"]
         face[ATTR_CONFIDENCE] = round(100.0 * entry["confidence"], 2)
         faces.append(face)
+    return faces
+
+
+def get_faces(predictions: list, img_width: int, img_height: int):
+    """Return faces with formatting for annotating images."""
+    faces = []
+    decimal_places = 3
+    for pred in predictions:
+        box_width = pred["x_max"] - pred["x_min"]
+        box_height = pred["y_max"] - pred["y_min"]
+        box = {
+            "height": round(box_height / img_height, decimal_places),
+            "width": round(box_width / img_width, decimal_places),
+            "y_min": round(pred["y_min"] / img_height, decimal_places),
+            "x_min": round(pred["x_min"] / img_width, decimal_places),
+            "y_max": round(pred["y_max"] / img_height, decimal_places),
+            "x_max": round(pred["x_max"] / img_width, decimal_places),
+        }
+        box_area = round(box["height"] * box["width"], decimal_places)
+        centroid = {
+            "x": round(box["x_min"] + (box["width"] / 2), decimal_places),
+            "y": round(box["y_min"] + (box["height"] / 2), decimal_places),
+        }
+        name = pred["userid"]
+        confidence = round(pred["confidence"] * 100, decimal_places)
+
+        faces.append(
+            {
+                "bounding_box": box,
+                "box_area": box_area,
+                "centroid": centroid,
+                "name": name,
+                "confidence": confidence,
+            }
+        )
     return faces
 
 
@@ -109,6 +150,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
             config.get(CONF_DETECT_ONLY),
             save_file_folder,
             config.get(CONF_SAVE_TIMESTAMPTED_FILE),
+            config[CONF_SHOW_BOXES],
             camera[CONF_ENTITY_ID],
             camera.get(CONF_NAME),
         )
@@ -147,6 +189,7 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         detect_only,
         save_file_folder,
         save_timestamped_file,
+        show_boxes,
         camera_entity,
         name=None,
     ):
@@ -154,7 +197,7 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         super().__init__()
         self._dsface = ds.DeepstackFace(ip_address, port, api_key, timeout)
         self._detect_only = detect_only
-
+        self._show_boxes = show_boxes
         self._last_detection = None
         self._save_file_folder = save_file_folder
         self._save_timestamped_file = save_timestamped_file
@@ -165,13 +208,13 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         else:
             camera_name = split_entity_id(camera_entity)[1]
             self._name = "{} {}".format(CLASSIFIER, camera_name)
-        self._faces = []
+        self._predictions = []
         self._matched = {}
         self.total_faces = None
 
     def process_image(self, image):
         """Process an image."""
-        self._faces = []
+        self._predictions = []
         self._matched = {}
         self.total_faces = None
         try:
@@ -182,14 +225,15 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         except ds.DeepstackException as exc:
             _LOGGER.error("Depstack error : %s", exc)
             return
-        self._faces = self._dsface.predictions.copy()
+        self._predictions = self._dsface.predictions.copy()
 
-        if len(self._faces) > 0:
+        if len(self._predictions) > 0:
             self._last_detection = dt_util.now().strftime(DATETIME_FORMAT)
-            self.total_faces = len(self._faces)
-            self._matched = ds.get_recognised_faces(self._faces)
+            self.total_faces = len(self._predictions)
+            self._matched = ds.get_recognised_faces(self._predictions)
             self.process_faces(
-                parse_faces(self._faces), self.total_faces
+                parse_predictions_for_events(self._predictions),
+                self.total_faces,
             )  # fire image_processing.detect_face
             if self._save_file_folder:
                 self.save_image(
@@ -252,6 +296,25 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         except UnidentifiedImageError:
             _LOGGER.warning("Deepstack unable to process image, bad data")
             return
+
+        image_width, image_height = img.size
+        draw = ImageDraw.Draw(img)
+        for face in get_faces(self._predictions, image_width, image_height):
+            if not self._show_boxes:
+                break
+            name = face["name"]
+            confidence = face["confidence"]
+            box = face["bounding_box"]
+            box_label = f"{name}: {confidence:.1f}%"
+
+            draw_box(
+                draw,
+                (box["y_min"], box["x_min"], box["y_max"], box["x_max"]),
+                image_width,
+                image_height,
+                text=box_label,
+                color=RED,
+            )
 
         latest_save_path = (
             directory / f"{get_valid_filename(self._name).lower()}_latest.jpg"
