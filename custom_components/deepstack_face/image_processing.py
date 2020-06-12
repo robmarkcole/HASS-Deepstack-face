@@ -228,6 +228,11 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         return False
 
     @property
+    def force_update(self):
+        """Force update to fire state events even if state has not changed."""
+        return True
+
+    @property
     def device_state_attributes(self):
         """Return the classifier attributes."""
         attr = {}
@@ -237,7 +242,7 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
             attr["matched_faces"] = self._matched
             attr["total_matched_faces"] = len(self._matched)
         if self._last_detection:
-            attr["last_target_detection"] = self._last_detection
+            attr["last_detection"] = self._last_detection
         return attr
 
     def save_image(self, image, directory):
