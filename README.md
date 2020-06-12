@@ -54,7 +54,7 @@ image_processing:
     port: 5000
     api_key: mysecretkey
     timeout: 5
-    detect_only: True
+    detect_only: False
     save_file_folder: /config/snapshots/
     save_timestamped_file: True
     show_boxes: True
