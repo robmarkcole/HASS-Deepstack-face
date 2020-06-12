@@ -42,7 +42,7 @@ Place the `custom_components` folder in your configuration directory (or add its
 **Note** that by default the component will **not** automatically scan images, but requires you to call the `image_processing.scan` service e.g. using an automation.
 
 ## Face detection & recognition
-Deepstack [face recognition](https://deepstackpython.readthedocs.io/en/latest/facerecognition.html) counts faces (detection) and (optionally) will recognise them if you have trained your Deepstack using the `deepstack_teach_face` service (takes extra time). Configuring `detect_only = True` results in faster processing than recognition mode, but any trained faces will not be listed in the `matched_faces` attribute. An event `image_processing.detect_face` is fired for each detected recognised face.
+Deepstack [face recognition](https://deepstackpython.readthedocs.io/en/latest/facerecognition.html) counts faces (detection) and (optionally) will recognise them if you have trained your Deepstack using the `deepstack_teach_face` service (takes extra time). Configuring `detect_only = True` results in faster processing than recognition mode, but any trained faces will not be listed in the `matched_faces` attribute. An event `image_processing.detect_face` is fired for each detected face.
 
 The `deepstack_face` component adds an `image_processing` entity where the state of the entity is the total number of faces that are found in the camera image. Recognised faces are listed in the entity `matched faces` attribute. The component can optionally save snapshots of the processed images. If you would like to use this option, you need to create a folder where the snapshots will be stored. The folder should be in the same folder where your `configuration.yaml` file is located. In the example below, we have named the folder `snapshots`.
 
@@ -74,6 +74,14 @@ Configuration variables:
 - **source**: Must be a camera.
 - **name**: (Optional) A custom name for the the entity.
 
+<p align="center">
+<img src="https://github.com/robmarkcole/HASS-Deepstack-face/blob/master/docs/face_usage.png" width="500">
+</p>
+
+<p align="center">
+<img src="https://github.com/robmarkcole/HASS-Deepstack-face/blob/master/docs/face_detail.png" width="350">
+</p>
+
 #### Service `deepstack_teach_face`
 This service is for teaching (or [registering](https://deepstackpython.readthedocs.io/en/latest/facerecognition.html#face-registeration)) faces with deepstack, so that they can be recognised.
 
@@ -84,14 +92,6 @@ Example valid service data:
   "file_path": "/config/www/adele.jpeg"
 }
 ```
-
-<p align="center">
-<img src="https://github.com/robmarkcole/HASS-Deepstack-face/blob/master/docs/face_usage.png" width="500">
-</p>
-
-<p align="center">
-<img src="https://github.com/robmarkcole/HASS-Deepstack-face/blob/master/docs/face_detail.png" width="350">
-</p>
 
 ## Event `image_processing.detect_face`
 For each face that is detected, an `image_processing.detect_face` event is fired. To monitor these events from the HA UI you can use `Developer tools -> EVENTS -> :Listen to events`. The event payload includes the following data:
