@@ -15,6 +15,7 @@ from PIL import Image, ImageDraw
 
 import deepstack.core as ds
 import homeassistant.helpers.config_validation as cv
+from homeassistant.util.pil import draw_box
 import homeassistant.util.dt as dt_util
 import voluptuous as vol
 from homeassistant.components.image_processing import (
@@ -297,10 +298,23 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
             return
 
         image_width, image_height = img.size
-
+        draw = ImageDraw.Draw(img)
         for face in get_faces(self._predictions, image_width, image_height):
             if not self._show_boxes:
                 break
+            name = face["name"]
+            confidence = face["confidence"]
+            box = face["bounding_box"]
+            box_label = f"{name}: {confidence:.1f}%"
+
+            draw_box(
+                draw,
+                (box["y_min"], box["x_min"], box["y_max"], box["x_max"]),
+                image_width,
+                image_height,
+                text=box_label,
+                color=RED,
+            )
 
         latest_save_path = (
             directory / f"{get_valid_filename(self._name).lower()}_latest.jpg"
