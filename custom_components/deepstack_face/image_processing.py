@@ -233,6 +233,8 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
     def device_state_attributes(self):
         """Return the classifier attributes."""
         attr = {}
+        if self._detect_only:
+            attr[CONF_DETECT_ONLY] = self._detect_only
         if not self._detect_only:
             attr["matched_faces"] = self._matched
             attr["total_matched_faces"] = len(self._matched)
