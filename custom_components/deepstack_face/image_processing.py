@@ -36,11 +36,15 @@ from homeassistant.core import split_entity_id
 
 _LOGGER = logging.getLogger(__name__)
 
+# rgb(red, green, blue)
+RED = (255, 0, 0)  # For objects within the ROI
+
 CONF_API_KEY = "api_key"
 CONF_TIMEOUT = "timeout"
 CONF_DETECT_ONLY = "detect_only"
 CONF_SAVE_FILE_FOLDER = "save_file_folder"
 CONF_SAVE_TIMESTAMPTED_FILE = "save_timestamped_file"
+CONF_SHOW_BOXES = "show_boxes"
 
 DATETIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
 DEFAULT_API_KEY = ""
@@ -61,6 +65,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_DETECT_ONLY, default=False): cv.boolean,
         vol.Optional(CONF_SAVE_FILE_FOLDER): cv.isdir,
         vol.Optional(CONF_SAVE_TIMESTAMPTED_FILE, default=False): cv.boolean,
+        vol.Optional(CONF_SHOW_BOXES, default=True): cv.boolean,
     }
 )
 
@@ -109,6 +114,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
             config.get(CONF_DETECT_ONLY),
             save_file_folder,
             config.get(CONF_SAVE_TIMESTAMPTED_FILE),
+            config[CONF_SHOW_BOXES],
             camera[CONF_ENTITY_ID],
             camera.get(CONF_NAME),
         )
@@ -147,6 +153,7 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         detect_only,
         save_file_folder,
         save_timestamped_file,
+        show_boxes,
         camera_entity,
         name=None,
     ):
@@ -154,7 +161,7 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         super().__init__()
         self._dsface = ds.DeepstackFace(ip_address, port, api_key, timeout)
         self._detect_only = detect_only
-
+        self._show_boxes = show_boxes
         self._last_detection = None
         self._save_file_folder = save_file_folder
         self._save_timestamped_file = save_timestamped_file
