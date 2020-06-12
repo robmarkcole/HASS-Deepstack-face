@@ -83,8 +83,6 @@ def parse_faces(predictions):
     for entry in predictions:
         if not "userid" in entry.keys():
             break  # we are in detect_only mode
-        if entry["userid"] == "unknown":
-            continue
         face = {}
         face["name"] = entry["userid"]
         face[ATTR_CONFIDENCE] = round(100.0 * entry["confidence"], 2)
@@ -230,13 +228,21 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         return False
 
     @property
+    def force_update(self):
+        """Force update to fire state events even if state has not changed."""
+        return True
+
+    @property
     def device_state_attributes(self):
         """Return the classifier attributes."""
         attr = {}
-        attr["matched_faces"] = self._matched
-        attr["total_matched_faces"] = len(self._matched)
+        if self._detect_only:
+            attr[CONF_DETECT_ONLY] = self._detect_only
+        if not self._detect_only:
+            attr["total_matched_faces"] = len(self._matched)
+            attr["matched_faces"] = self._matched
         if self._last_detection:
-            attr["last_target_detection"] = self._last_detection
+            attr["last_detection"] = self._last_detection
         return attr
 
     def save_image(self, image, directory):
