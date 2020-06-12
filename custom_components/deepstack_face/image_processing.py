@@ -83,24 +83,16 @@ def get_valid_filename(name: str) -> str:
     return re.sub(r"(?u)[^-\w.]", "", str(name).strip().replace(" ", "_"))
 
 
-def parse_predictions_for_events(predictions: list):
-    """Get recognised faces for the image_processing.detect_face event."""
-    faces = []
-    for entry in predictions:
-        if not "userid" in entry.keys():
-            break  # we are in detect_only mode
-        face = {}
-        face["name"] = entry["userid"]
-        face[ATTR_CONFIDENCE] = round(100.0 * entry["confidence"], 2)
-        faces.append(face)
-    return faces
-
-
-def get_faces(predictions: list, img_width: int, img_height: int):
+def get_faces(predictions: list, img_width: int = 300, img_height: int = 300):
     """Return faces with formatting for annotating images."""
     faces = []
     decimal_places = 3
     for pred in predictions:
+        if not "userid" in pred.keys():
+            name = "unknown"
+        else:
+            name = pred["userid"]
+        confidence = round(pred["confidence"] * 100, decimal_places)
         box_width = pred["x_max"] - pred["x_min"]
         box_height = pred["y_max"] - pred["y_min"]
         box = {
@@ -116,16 +108,14 @@ def get_faces(predictions: list, img_width: int, img_height: int):
             "x": round(box["x_min"] + (box["width"] / 2), decimal_places),
             "y": round(box["y_min"] + (box["height"] / 2), decimal_places),
         }
-        name = pred["userid"]
-        confidence = round(pred["confidence"] * 100, decimal_places)
 
         faces.append(
             {
+                "name": name,
+                "confidence": confidence,
                 "bounding_box": box,
                 "box_area": box_area,
                 "centroid": centroid,
-                "name": name,
-                "confidence": confidence,
             }
         )
     return faces
@@ -232,8 +222,7 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
             self.total_faces = len(self._predictions)
             self._matched = ds.get_recognised_faces(self._predictions)
             self.process_faces(
-                parse_predictions_for_events(self._predictions),
-                self.total_faces,
+                get_faces(self._predictions), self.total_faces,
             )  # fire image_processing.detect_face
             if self._save_file_folder:
                 self.save_image(
