@@ -83,8 +83,6 @@ def parse_faces(predictions):
     for entry in predictions:
         if not "userid" in entry.keys():
             break  # we are in detect_only mode
-        if entry["userid"] == "unknown":
-            continue
         face = {}
         face["name"] = entry["userid"]
         face[ATTR_CONFIDENCE] = round(100.0 * entry["confidence"], 2)

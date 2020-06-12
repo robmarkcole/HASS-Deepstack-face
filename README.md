@@ -92,10 +92,10 @@ Example valid service data:
 </p>
 
 ## Event `image_processing.detect_face`
-For each recognised face that is detected, an `image_processing.detect_face` event is fired. To monitor these events from the HA UI you can use `Developer tools -> EVENTS -> :Listen to events`. The event payload includes the following data:
+For each face that is detected, an `image_processing.detect_face` event is fired. To monitor these events from the HA UI you can use `Developer tools -> EVENTS -> :Listen to events`. The event payload includes the following data:
 - `entity_id` : the entity id responsible for the event
-- `name` : the name of the recognised face
-- `confidence`: the confidence in % of the recognition
+- `name` : the name of the face if recognised, otherwise `unknown`
+- `confidence`: the confidence in % of the recognition, 0 if `unknown`
 
 **Remember** face recognition is not performed if you have configured `detect_only: True`.
 
