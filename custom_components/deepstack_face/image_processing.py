@@ -173,7 +173,9 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
     ):
         """Init with the API key and model id."""
         super().__init__()
-        self._dsface = ds.DeepstackFace(ip_address, port, api_key, timeout)
+        self._dsface = ds.DeepstackFace(
+            ip=ip_address, port=port, api_key=api_key, timeout=timeout
+        )
         self._detect_only = detect_only
         self._show_boxes = show_boxes
         self._last_detection = None
@@ -205,18 +207,17 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         image_width, image_height = pil_image.size
         try:
             if self._detect_only:
-                self._dsface.detect(image)
+                self._predictions = self._dsface.detect(image)
             else:
-                self._dsface.recognise(image)
+                self._predictions = self._dsface.recognize(image)
         except ds.DeepstackException as exc:
             _LOGGER.error("Depstack error : %s", exc)
             return
-        self._predictions = self._dsface.predictions.copy()
 
         if len(self._predictions) > 0:
             self._last_detection = dt_util.now().strftime(DATETIME_FORMAT)
             self.total_faces = len(self._predictions)
-            self._matched = ds.get_recognised_faces(self._predictions)
+            self._matched = ds.get_recognized_faces(self._predictions)
             self.faces = get_faces(self._predictions, image_width, image_height)
             self.process_faces(
                 self.faces, self.total_faces,
@@ -234,7 +235,7 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         if not self.hass.config.is_allowed_path(file_path):
             return
         with open(file_path, "rb") as image:
-            self._dsface.register_face(name, image)
+            self._dsface.register(name, image)
             _LOGGER.info("Depstack face taught name : %s", name)
 
     @property
@@ -302,8 +303,6 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         pil_image.save(latest_save_path)
 
         if self._save_timestamped_file:
-            timestamp_save_path = (
-                directory / f"{self._name}_{self._last_detection}.jpg"
-            )
+            timestamp_save_path = directory / f"{self._name}_{self._last_detection}.jpg"
             pil_image.save(timestamp_save_path)
             _LOGGER.info("Deepstack saved file %s", timestamp_save_path)
