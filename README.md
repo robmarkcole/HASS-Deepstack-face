@@ -1,39 +1,9 @@
 # HASS-Deepstack-face
-[Home Assistant](https://www.home-assistant.io/) custom components for using Deepstack face detection and recognition. [Deepstack](https://www.deepquestai.com/insider/) is a service which runs in a docker container and exposes deep-learning models via a REST API. There is no cost for using Deepstack, although you will need a machine with 8 GB RAM.
+[Home Assistant](https://www.home-assistant.io/) custom components for using Deepstack face detection and recognition. [Deepstack](https://docs.deepstack.cc/) is a service which runs in a docker container and exposes various computer vision models via a REST API.
 
-**Recommended OS** Deepstack docker containers are optimised for Linux or Windows 10 Pro. Mac and regular windows users my experience performance issues.
-
-**GPU users** Note that if your machine has an Nvidia GPU you can get a 5 x 20 times performance boost by using the GPU, [read the docs here](https://deepstackpython.readthedocs.io/en/latest/gpuinstall.html#gpuinstall).
-
-**Legacy machine users** If you are using a machine that doesn't support avx or you are having issues with making requests, Deepstack has a specific build for these systems. Use `deepquestai/deepstack:noavx` instead of `deepquestai/deepstack` when you are installing or running Deepstack.
-
-## Run deepstack face & test
-On you machine with docker, run Deepstack with the face recognition service active on port `5000` (and in legacy machine mode) with:
+On you machine with docker, run Deepstack with the face recognition service active on port `80` with:
 ```
-docker run -e VISION-FACE=True -v localstorage:/datastore -p 5000:5000 --name deepstack deepquestai/deepstack:noavx
-```
-
-You can test the face detection endpoint is active using curl (here no API-KEY is set):
-```
-curl -X POST -F image=@docs/couple.jpg 'http://localhost:5000/v1/vision/face'
-```
-This should return:
-```
-{"success":true,"predictions":[
-{"confidence":0.99997544,"y_min":154,"x_min":1615,"y_max":682,"x_max":1983},
-{"confidence":0.9999571,"y_min":237,"x_min":869,"y_max":732,"x_max":1214}
-]}
-```
-Face recognition can be tested with:
-```
-curl -X POST -F image=@docs/couple.jpg 'http://localhost:5000/v1/vision/face/recognize'
-```
-This will return the same bounding box data as face detection, but also include a field `"userid"` which for recognized faces an example is `"userid":"Idris Elba"` whilst unrecognized faces are `"userid":"unknown"`. Example returned data:
-```
-{"success":true,"predictions":[
-{"confidence":0.7536658,"userid":"Idris Elba","y_min":154,"x_min":1615,"y_max":682,"x_max":1983},
-{"confidence":0,"userid":"unknown","y_min":237,"x_min":869,"y_max":732,"x_max":1214}
-]}
+docker run -e VISION-FACE=True -v localstorage:/datastore -p 80:5000 --name deepstack deepquestai/deepstack
 ```
 
 ## Home Assistant setup
@@ -41,10 +11,9 @@ Place the `custom_components` folder in your configuration directory (or add its
 
 **Note** that by default the component will **not** automatically scan images, but requires you to call the `image_processing.scan` service e.g. using an automation.
 
-## Face detection & recognition
-Deepstack [face recognition](https://deepstackpython.readthedocs.io/en/latest/facerecognition.html) counts faces (detection) and (optionally) will recognise them if you have trained your Deepstack using the `deepstack_teach_face` service (takes extra time). Configuring `detect_only = True` results in faster processing than recognition mode, but any trained faces will not be listed in the `matched_faces` attribute. An event `image_processing.detect_face` is fired for each detected face.
+Deepstack [face recognition](https://docs.deepstack.cc/face-recognition/index.html) counts faces (detection) and (optionally) will recognize them if you have trained your Deepstack using the `deepstack_teach_face` service (takes extra time). Configuring `detect_only = True` results in faster processing than recognition mode, but any trained faces will not be listed in the `matched_faces` attribute. An event `image_processing.detect_face` is fired for each detected face.
 
-The `deepstack_face` component adds an `image_processing` entity where the state of the entity is the total number of faces that are found in the camera image. Recognised faces are listed in the entity `matched faces` attribute. The component can optionally save snapshots of the processed images. If you would like to use this option, you need to create a folder where the snapshots will be stored. The folder should be in the same folder where your `configuration.yaml` file is located. In the example below, we have named the folder `snapshots`.
+The `deepstack_face` component adds an `image_processing` entity where the state of the entity is the total number of faces that are found in the camera image. Recognized faces are listed in the entity `matched faces` attribute. The component can optionally save snapshots of the processed images. If you would like to use this option, you need to create a folder where the snapshots will be stored. The folder should be in the same folder where your `configuration.yaml` file is located. In the example below, we have named the folder `snapshots`.
 
 Add to your Home-Assistant config:
 ```yaml
@@ -83,7 +52,7 @@ Configuration variables:
 </p>
 
 #### Service `deepstack_teach_face`
-This service is for teaching (or [registering](https://deepstackpython.readthedocs.io/en/latest/facerecognition.html#face-registeration)) faces with deepstack, so that they can be recognised.
+This service is for teaching (or [registering](https://docs.deepstack.cc/face-recognition/index.html#face-registration)) faces with deepstack, so that they can be recognized.
 
 Example valid service data:
 ```
@@ -104,9 +73,6 @@ For each face that is detected, an `image_processing.detect_face` event is fired
 ## Object recognition
 For object (e.g. person) recognition with Deepstack use https://github.com/robmarkcole/HASS-Deepstack-object
 
-## Tensorflow lite alternative to deepstack
-As an experiment I created a drop in replacement for deepstack that uses tensorflow-lite models at https://github.com/robmarkcole/tensorflow-lite-rest-server. Note that the predictions differ from those provided by Deepstack, and are less accurate. However it runs on a raspberry pi without requiring hardware acceleration.
-
 ### Support
 For code related issues such as suspected bugs, please open an issue on this repo. For general chat or to discuss Home Assistant specific issues related to configuration or use cases, please [use this thread on the Home Assistant forums](https://community.home-assistant.io/t/face-and-person-detection-with-deepstack-local-and-free/92041).
 
@@ -122,9 +88,9 @@ A1: Yes this is normal
 
 ------
 
-Q2: Will Deepstack always be free, if so how do these guys make a living?
+Q2: I hear Deepstack is open source?
 
-A2: I'm informed there will always be a basic free version with preloaded models, while there will be an enterprise version with advanced features such as custom models and endpoints, which will be subscription based.
+A2: Yes, see https://github.com/johnolafenwa/DeepStack
 
 ------
 
@@ -142,6 +108,6 @@ A4: So long as you have run the container including `-v localstorage:/datastore`
 
 Q5: I am getting an error from Home Assistant: `Platform error: image_processing - Integration deepstack_object not found`
 
-A5: This can happen when you are running in Docker/Hassio, and indicates that one of the dependencies isn't installed. It is necessary to reboot your Hassio device, or rebuild your Docker container. Note that just restarting Home Assistant will not resolve this.
+A5: This can happen when you are running in Docker, and indicates that one of the dependencies isn't installed. It is necessary to reboot your device, or rebuild your Docker container. Note that just restarting Home Assistant will not resolve this.
 
 ------
