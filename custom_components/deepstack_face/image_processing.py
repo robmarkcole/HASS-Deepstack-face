@@ -45,6 +45,8 @@ CONF_TIMEOUT = "timeout"
 CONF_DETECT_ONLY = "detect_only"
 CONF_SAVE_FILE_FOLDER = "save_file_folder"
 CONF_SAVE_TIMESTAMPTED_FILE = "save_timestamped_file"
+CONF_SAVE_FACES_FOLDER = "save_faces_folder"
+CONF_SAVE_FACES = "save_faces"
 CONF_SHOW_BOXES = "show_boxes"
 
 DATETIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
@@ -66,6 +68,8 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_DETECT_ONLY, default=False): cv.boolean,
         vol.Optional(CONF_SAVE_FILE_FOLDER): cv.isdir,
         vol.Optional(CONF_SAVE_TIMESTAMPTED_FILE, default=False): cv.boolean,
+        vol.Optional(CONF_SAVE_FACES_FOLDER): cv.isdir,
+        vol.Optional(CONF_SAVE_FACES, default=False): cv.boolean,
         vol.Optional(CONF_SHOW_BOXES, default=True): cv.boolean,
     }
 )
@@ -104,7 +108,7 @@ def get_faces(predictions: list, img_width: int, img_height: int):
             "x_max": round(pred["x_max"] / img_width, decimal_places),
         }
         faces.append(
-            {"name": name, "confidence": confidence, "bounding_box": box,}
+            {"name": name, "confidence": confidence, "bounding_box": box, "prediction": pred}
         )
     return faces
 
@@ -118,6 +122,10 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     if save_file_folder:
         save_file_folder = Path(save_file_folder)
 
+    save_faces_folder = config.get(CONF_SAVE_FACES_FOLDER)
+    if save_faces_folder:
+        save_faces_folder = Path(save_faces_folder)
+
     entities = []
     for camera in config[CONF_SOURCE]:
         face_entity = FaceClassifyEntity(
@@ -128,6 +136,8 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
             config.get(CONF_DETECT_ONLY),
             save_file_folder,
             config.get(CONF_SAVE_TIMESTAMPTED_FILE),
+            save_faces_folder,
+            config.get(CONF_SAVE_FACES),
             config[CONF_SHOW_BOXES],
             camera[CONF_ENTITY_ID],
             camera.get(CONF_NAME),
@@ -167,6 +177,8 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         detect_only,
         save_file_folder,
         save_timestamped_file,
+        save_faces_folder,
+        save_faces,
         show_boxes,
         camera_entity,
         name=None,
@@ -181,6 +193,8 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         self._last_detection = None
         self._save_file_folder = save_file_folder
         self._save_timestamped_file = save_timestamped_file
+        self._save_faces_folder = save_faces_folder
+        self._save_faces = save_faces
 
         self._camera = camera_entity
         if name:
@@ -222,6 +236,13 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
             self.process_faces(
                 self.faces, self.total_faces,
             )  # fire image_processing.detect_face
+
+            if not self._detect_only:
+                if self._save_faces and self._save_faces_folder:
+                    self.save_faces(
+                        pil_image, self._save_faces_folder
+                    )
+
             if self._save_file_folder:
                 self.save_image(
                     pil_image, self._save_file_folder,
@@ -275,6 +296,23 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         if self._last_detection:
             attr["last_detection"] = self._last_detection
         return attr
+
+
+    def save_faces(self, pil_image: Image, directory: Path):
+        """Saves recognized faces."""
+        for face in self.faces:
+            box = face["prediction"]
+            name = face["name"]
+            confidence = face["confidence"]
+            face_name = face["name"]
+
+            cropped_image = pil_image.crop(
+                (box["x_min"], box["y_min"], box["x_max"], box["y_max"])
+            )
+
+            timestamp_save_path = directory / f"{face_name}_{confidence:.1f}_{self._last_detection}.jpg"
+            cropped_image.save(timestamp_save_path)
+            _LOGGER.info("Deepstack saved face %s", timestamp_save_path)
 
     def save_image(self, pil_image: Image, directory: Path):
         """Draws the actual bounding box of the detected objects."""

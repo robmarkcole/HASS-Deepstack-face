@@ -26,6 +26,8 @@ image_processing:
     detect_only: False
     save_file_folder: /config/snapshots/
     save_timestamped_file: True
+    save_faces: True
+    save_faces_folder: /config/faces/
     show_boxes: True
     source:
       - entity_id: camera.local_file
@@ -39,6 +41,8 @@ Configuration variables:
 - **detect_only**: (Optional, boolean, default `False`) If `True`, only detection is performed. If `False` then recognition is performed.
 - **save_file_folder**: (Optional) The folder to save processed images to. Note that folder path should be added to [whitelist_external_dirs](https://www.home-assistant.io/docs/configuration/basic/)
 - **save_timestamped_file**: (Optional, default `False`, requires `save_file_folder` to be configured) Save the processed image with the time of detection in the filename.
+- **save_faces**: (Optional, default `False`, requires `save_faces_folder` to be configured and `detect_only` to be set to `False`) Save every recognized face to a file inside the `save_faces_folder` directory.
+- **save_faces_folder**: (Optional) The folder to save cut out faces to. Note that folder path should be added to [whitelist_external_dirs](https://www.home-assistant.io/docs/configuration/basic/)
 - **show_boxes**: (optional, default `True`), if `False` bounding boxes are not shown on saved images
 - **source**: Must be a camera.
 - **name**: (Optional) A custom name for the the entity.
