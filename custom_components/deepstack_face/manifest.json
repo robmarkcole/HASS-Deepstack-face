@@ -2,6 +2,7 @@
         "domain": "deepstack_face",
         "name": "deepstack face custom integration",
         "documentation": "https://github.com/robmarkcole/HASS-Deepstack-face",
+        "version": "0.9.0",
         "requirements": [
                 "pillow",
                 "deepstack-python==0.8"
