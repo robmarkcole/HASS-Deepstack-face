@@ -1,0 +1,9 @@
+deepstack_teach_face:
+  description: Teach Deepstack a face
+  fields:
+    name:
+      description: the name of the face
+      example: Idris
+    file_path:
+      description: File on local filesystem to upload
+      example: /photos/idris.jpg
