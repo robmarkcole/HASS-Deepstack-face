@@ -115,3 +115,8 @@ Q5: I am getting an error from Home Assistant: `Platform error: image_processing
 A5: This can happen when you are running in Docker, and indicates that one of the dependencies isn't installed. It is necessary to reboot your device, or rebuild your Docker container. Note that just restarting Home Assistant will not resolve this.
 
 ------
+
+## Video of usage
+Checkout this excellent video of usage from [Everything Smart Home](https://www.youtube.com/channel/UCrVLgIniVg6jW38uVqDRIiQ)
+
+[![](http://img.youtube.com/vi/XPs0J1EQhK0/0.jpg)](http://www.youtube.com/watch?v=XPs0J1EQhK0 "")
