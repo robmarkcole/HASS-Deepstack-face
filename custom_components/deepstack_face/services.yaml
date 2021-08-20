@@ -1,9 +1,22 @@
-deepstack_teach_face:
+teach_face:
+  name: Deepstack Teach Face
   description: Teach Deepstack a face
   fields:
     name:
       description: the name of the face
       example: Idris
+      required: true
+      selector:
+        text:
     file_path:
       description: File on local filesystem to upload
+      required: true
       example: /photos/idris.jpg
+      selector:
+        text:
+    entity_id:
+      description: Name entity.
+      selector:
+        entity:
+          integration: deepstack_face
+          domain: image_processing
