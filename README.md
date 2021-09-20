@@ -74,8 +74,8 @@ For each face that is detected, an `image_processing.detect_face` event is fired
 
 **Remember** face recognition is not performed if you have configured `detect_only: True`.
 
-## EVENT `deepstack_face.detect_face`
-When a face is taugh to deepstack face, an `deepstack_face.teach_face`  event is fired. The event payload includes the following data:
+## EVENT `deepstack_face.teach_face`
+When a face is taugh to deepstack face, an `deepstack_face.teach_face` event is fired. The event payload includes the following data:
 - `name`: the name of the face learned 
 - `file_path`: the file path of the file used
 
