@@ -67,12 +67,20 @@ Example valid service data:
 ```
 
 ## Event `image_processing.detect_face`
-For each face that is detected, an `image_processing.detect_face` event is fired. To monitor these events from the HA UI you can use `Developer tools -> EVENTS -> :Listen to events`. The event payload includes the following data:
+For each face that is detected, an `image_processing.detect_face` event is fired. The event payload includes the following data:
 - `entity_id` : the entity id responsible for the event
 - `name` : the name of the face if recognised, otherwise `unknown`
 - `confidence`: the confidence in % of the recognition, 0 if `unknown`
 
 **Remember** face recognition is not performed if you have configured `detect_only: True`.
+
+## EVENT `deepstack_face.teach_face`
+When a face is taugh to deepstack face, an `deepstack_face.teach_face` event is fired. The event payload includes the following data:
+- `name`: the name of the face learned 
+- `file_path`: the file path of the file used
+
+
+To monitor these events from the HA UI you can use `Developer tools -> EVENTS -> :Listen to events`. 
 
 ## Object recognition
 For object (e.g. person) recognition with Deepstack use https://github.com/robmarkcole/HASS-Deepstack-object
