@@ -291,7 +291,7 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         return True
 
     @property
-    def device_state_attributes(self):
+    def extra_state_attributes(self):
         """Return the classifier attributes."""
         attr = {}
         if self._detect_only:
