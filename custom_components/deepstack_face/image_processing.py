@@ -38,6 +38,9 @@ _LOGGER = logging.getLogger(__name__)
 
 # rgb(red, green, blue)
 RED = (255, 0, 0)  # For objects within the ROI
+YELLOW = (255,255,0)
+GREEN = (34,139,34)
+BLUE = (0,0,255)
 
 CONF_API_KEY = "api_key"
 CONF_TIMEOUT = "timeout"
@@ -47,6 +50,7 @@ CONF_SAVE_TIMESTAMPTED_FILE = "save_timestamped_file"
 CONF_SAVE_FACES_FOLDER = "save_faces_folder"
 CONF_SAVE_FACES = "save_faces"
 CONF_SHOW_BOXES = "show_boxes"
+CONF_BOX_COLOR = "box_color"
 
 DATETIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
 DEFAULT_API_KEY = ""
@@ -71,6 +75,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_SAVE_FACES_FOLDER): cv.isdir,
         vol.Optional(CONF_SAVE_FACES, default=False): cv.boolean,
         vol.Optional(CONF_SHOW_BOXES, default=True): cv.boolean,
+        vol.Optional(CONF_BOX_COLOR, default=RED): cv.string,
     }
 )
 
@@ -139,6 +144,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
             save_faces_folder,
             config.get(CONF_SAVE_FACES),
             config[CONF_SHOW_BOXES],
+            config.get(CONF_BOX_COLOR),
             camera[CONF_ENTITY_ID],
             camera.get(CONF_NAME),
         )
@@ -180,6 +186,7 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         save_faces_folder,
         save_faces,
         show_boxes,
+        box_color,
         camera_entity,
         name=None,
     ):
@@ -190,6 +197,7 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
         )
         self._detect_only = detect_only
         self._show_boxes = show_boxes
+        self._box_color = box_color
         self._last_detection = None
         self._save_file_folder = save_file_folder
         self._save_timestamped_file = save_timestamped_file
@@ -331,6 +339,7 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
             confidence = face["confidence"]
             box = face["bounding_box"]
             box_label = f"{name}: {confidence:.1f}%"
+            box_color = self._box_color
 
             draw_box(
                 draw,
@@ -338,7 +347,7 @@ class FaceClassifyEntity(ImageProcessingFaceEntity):
                 image_width,
                 image_height,
                 text=box_label,
-                color=RED,
+                color=box_color.upper(),
             )
 
         latest_save_path = (
